@@ -7,26 +7,28 @@ var path = "https://publications.parliament.uk/pa/cm/cmregmem/220314/contents.ht
 var content = await GetPage(client, path);
 var mpLinks = ParseMPLinks(content);
 var mpsAndInterests = await Task.WhenAll(mpLinks.Select(async link => await ParseMPPage(client, link)));
-// foreach(var mpAndInterests in mpsAndInterests) {
-//     Console.WriteLine(mpAndInterests.Item1);
-//     foreach(var interest in mpAndInterests.Item2) {
-//         Console.WriteLine("\t" + interest);
-//     }
-// }
-var mpsWhoLoveAGamble = mpsAndInterests
-    .Where(mp => mp.Interests.Any(interest => interest.donor?.name == "Betting and Gaming Council"))
-    .Select(mp => mp.Item1).ToList();
-mpsWhoLoveAGamble.ForEach(Console.WriteLine);
-var giftMarchLeaderboard = mpsAndInterests
-    .Select(x => (x.MP, TotalValue: x.Interests
-                                     .Where(interest => interest.dateRegistered >= new DateTime(2022, 03, 01))
-                                     .Sum(interest => interest.valueInPounds)))
-    .OrderByDescending(x => x.TotalValue)
-    .Take(10).ToList();
-giftMarchLeaderboard.ForEach(x => Console.WriteLine($"{x.MP} - £{x.TotalValue}"));
+foreach (var mpAndInterests in mpsAndInterests)
+{
+    Console.WriteLine(mpAndInterests.Item1);
+    foreach (var interest in mpAndInterests.Item2)
+    {
+        Console.WriteLine("\t" + interest);
+    }
+}
+// var mpsWhoLoveAGamble = mpsAndInterests
+//     .Where(mp => mp.Interests.Any(interest => interest.donor?.name == "Betting and Gaming Council"))
+//     .Select(mp => mp.Item1).ToList();
+// mpsWhoLoveAGamble.ForEach(Console.WriteLine);
+// var giftMarchLeaderboard = mpsAndInterests
+//     .Select(x => (x.MP, TotalValue: x.Interests
+//                                      .Where(interest => interest.dateRegistered >= new DateTime(2022, 03, 01))
+//                                      .Sum(interest => interest.valueInPounds)))
+//     .OrderByDescending(x => x.TotalValue)
+//     .Take(10).ToList();
+// giftMarchLeaderboard.ForEach(x => Console.WriteLine($"{x.MP} - £{x.TotalValue}"));
 
-var totalGiftValue = mpsAndInterests.Sum(x => x.Interests.Sum(interest => interest.valueInPounds));
-Console.WriteLine(totalGiftValue);
+// var totalGiftValue = mpsAndInterests.Sum(x => x.Interests.Sum(interest => interest.valueInPounds));
+// Console.WriteLine(totalGiftValue);
 
 
 async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, string link)
@@ -79,7 +81,7 @@ Donor status: company, registration 03822566<br/>
 
 GiftFromUKSource ParseUKGift(string content)
 {
- 
+
     var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)<br/>", content);
     var value = Utils.RegexOut(@"£(.+?)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
     var dateReceived = Utils.RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
@@ -107,7 +109,8 @@ GiftFromUKSource ParseUKGift(string content)
     return new GiftFromUKSource(donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
 }
 
-IDate? ParseDateOrRange(string? text) {
+IDate? ParseDateOrRange(string? text)
+{
     if (text == null)
     {
         return null;
@@ -123,25 +126,31 @@ IDate? ParseDateOrRange(string? text) {
         return ParseDateRange(text, "-");
     }
 
-    var seperators = new string[]{" - ", "-", " – ", "–", " to "};
-    foreach (var seperator in seperators) {
-        if (text.Contains(seperator)) {
+    var seperators = new string[] { " - ", "-", " – ", "–", " to " };
+    foreach (var seperator in seperators)
+    {
+        if (text.Contains(seperator))
+        {
             return ParseDateRange(text, seperator);
         }
     }
     return ParseDate(text);
 }
 
-DateRange ParseDateRange(string text, string seperator) {
+DateRange ParseDateRange(string text, string seperator)
+{
     var endDate = DateTime.Parse(text.Split(seperator).Last());
-    
+
     var startDateRaw = text.Split(seperator).First();
     DateTime startDate;
 
     var intParseSuccess = int.TryParse(startDateRaw, out var startDay);
-    if (intParseSuccess) {
+    if (intParseSuccess)
+    {
         startDate = new DateTime(endDate.Year, endDate.Month, startDay);
-    } else {
+    }
+    else
+    {
         startDate = DateTime.Parse(startDateRaw);
     }
 
@@ -149,7 +158,7 @@ DateRange ParseDateRange(string text, string seperator) {
 }
 
 Date? ParseDate(string? text)
-{   
+{
     if (text == null)
     {
         return null;
