@@ -14,7 +14,7 @@ var mpsAndInterests = await Task.WhenAll(mpLinks.Select(async link => await Pars
 //     }
 // }
 var mpsWhoLoveAGamble = mpsAndInterests
-    .Where(mp => mp.Interests.Any(interest => interest.donor.name == "Betting and Gaming Council"))
+    .Where(mp => mp.Interests.Any(interest => interest.donor?.name == "Betting and Gaming Council"))
     .Select(mp => mp.Item1).ToList();
 mpsWhoLoveAGamble.ForEach(Console.WriteLine);
 var giftMarchLeaderboard = mpsAndInterests
@@ -24,12 +24,13 @@ var giftMarchLeaderboard = mpsAndInterests
     .OrderByDescending(x => x.TotalValue)
     .Take(10).ToList();
 giftMarchLeaderboard.ForEach(x => Console.WriteLine($"{x.MP} - £{x.TotalValue}"));
-    
+
 var totalGiftValue = mpsAndInterests.Sum(x => x.Interests.Sum(interest => interest.valueInPounds));
 Console.WriteLine(totalGiftValue);
 
 
-async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, string link) {
+async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, string link)
+{
     // todo, get date out of this
     var url = "https://publications.parliament.uk/pa/cm/cmregmem/220314/" + link;
 
@@ -40,7 +41,8 @@ async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, str
     return (MP, gifts);
 }
 
-MP ParseMP(string content) {
+MP ParseMP(string content)
+{
     var mpNameAndConstiuencyRegex = new Regex(@"class=""RegisterOfInterestsMemberHeader"">(.+)\s\((.+)\)</p>");
     var match = mpNameAndConstiuencyRegex.Match(content);
     var name = match.Groups[1].Value;
@@ -48,10 +50,12 @@ MP ParseMP(string content) {
     return new MP(name, consituency);
 }
 
-List<Interest> ParseUKGifts(string content) {
+List<Interest> ParseUKGifts(string content)
+{
     var gifts = new List<Interest>();
-    var rawGifts = RegexOut(@"<strong>3\. Gifts, benefits and hospitality from UK sources</strong></p>(.+?)(<strong>|class=""spacer"")", content); // end with strong or class="prevNext"
-    if (rawGifts == null) {
+    var rawGifts = Utils.RegexOut(@"<strong>3\. Gifts, benefits and hospitality from UK sources</strong></p>(.+?)(<strong>|class=""spacer"")", content); // end with strong or class="prevNext"
+    if (rawGifts == null)
+    {
         return gifts;
     }
 
@@ -64,86 +68,109 @@ Date accepted: 29 June 2021<br/>
 Donor status: company, registration 03822566<br/>
 (Registered 02 August 2021)</p>
     */
-    var rawGiftList = RegexOutMulti(@"<p xmlns=""http://www.w3.org/1999/xhtml"" class=""indent"">(.+?)</p>", rawGifts);
-    foreach(var rawGift in rawGiftList) {
+    var rawGiftList = Utils.RegexOutMulti(@"<p xmlns=""http://www.w3.org/1999/xhtml"" class=""indent"">(.+?)</p>", rawGifts);
+    foreach (var rawGift in rawGiftList)
+    {
         var gift = ParseUKGift(rawGift);
         gifts.Add(gift);
     }
     return gifts;
 }
 
-GiftFromUKSource ParseUKGift(string content) {
-    var donorName = RegexOut(@"Name of donor: (.+?)<br/>", content);
-    var donorAddress = RegexOut(@"Address of donor: (.+?)<br/>", content);
-    var description = RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)<br/>", content);
-    var value = RegexOut(@"£(.+?)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
-    var dateReceived = RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
-    var dateAccepted = RegexOut(@"Date accepted: (.+?)( \(|<br/>)", content);
-    var rawDonorStatus = RegexOut(@"Donor status: (.+?)<br/>", content);
-    var dateRegistered = RegexOut(@"\(Registered (.+?)(\)|;)", content);
-    var dateUpdated = RegexOut(@"\(Registered.+; updated (.+?)\)", content);
+GiftFromUKSource ParseUKGift(string content)
+{
+ 
+    var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)<br/>", content);
+    var value = Utils.RegexOut(@"£(.+?)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
+    var dateReceived = Utils.RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
+    var dateAccepted = Utils.RegexOut(@"Date accepted: (.+?)( \(|<br/>)", content);
+    var dateRegistered = Utils.RegexOut(@"\(Registered (.+?)(\)|;)", content);
+    var dateUpdated = Utils.RegexOut(@"\(Registered.+; updated (.+?)\)", content);
 
     decimal? parsedValue = null;
-    try {
+    try
+    {
         parsedValue = string.IsNullOrEmpty(value) ? null : decimal.Parse(value);
-    } catch(FormatException e) {
+    }
+    catch (FormatException e)
+    {
         Console.WriteLine(value);
         throw e;
     }
-    var parsedDateReceived = ParseDateTime(dateReceived);
-    var parsedDateAccepted = ParseDateTime(dateAccepted);
-    var parsedDateRegistered = ParseDate(dateRegistered);
-    var parsedDateUpdated = ParseDateTime(dateUpdated);
 
-    // todo: properly regex out donor status
-    var donorStatus = new CompanyDonorStatus(rawDonorStatus);
-    var donor = new Donor(donorName, donorAddress, donorStatus);
+    var parsedDateReceived = ParseDateOrRange(dateReceived);
+    var parsedDateAccepted = ParseDateOrRange(dateAccepted);
+    var parsedDateRegistered = ParseDate(dateRegistered);
+    var parsedDateUpdated = ParseDate(dateUpdated);
+
+    var donor = Donor.ParseDonor(content);
     return new GiftFromUKSource(donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
 }
 
-Date? ParseDate(string text) {
-    // if (text == "22 November 20201") {
-    //     text = "22 November 2021";
-    // }
+IDate? ParseDateOrRange(string? text) {
+    if (text == null)
+    {
+        return null;
+    }
 
-    if (text == null) {
+    if (text == "22 November 20201")
+    {
+        text = "22 November 2021";
+    }
+
+    if (text.Contains("-"))
+    {
+        return ParseDateRange(text, "-");
+    }
+
+    var seperators = new string[]{" - ", "-", " – ", "–", " to "};
+    foreach (var seperator in seperators) {
+        if (text.Contains(seperator)) {
+            return ParseDateRange(text, seperator);
+        }
+    }
+    return ParseDate(text);
+}
+
+DateRange ParseDateRange(string text, string seperator) {
+    var endDate = DateTime.Parse(text.Split(seperator).Last());
+    
+    var startDateRaw = text.Split(seperator).First();
+    DateTime startDate;
+
+    var intParseSuccess = int.TryParse(startDateRaw, out var startDay);
+    if (intParseSuccess) {
+        startDate = new DateTime(endDate.Year, endDate.Month, startDay);
+    } else {
+        startDate = DateTime.Parse(startDateRaw);
+    }
+
+    return new DateRange(startDate, endDate);
+}
+
+Date? ParseDate(string? text)
+{   
+    if (text == null)
+    {
         return null;
     }
 
     var date = DateTime.Parse(text);
-    if (date < new DateTime(2010,1,1) || date > new DateTime(2023,1,1)) {
+    if (date < new DateTime(2010, 1, 1) || date > new DateTime(2023, 1, 1))
+    {
         throw new Exception("Date fails sanity check: " + text);
     }
 
     return new Date(DateTime.Parse(text));
 }
 
-DateTime? ParseDateTime(string text) {
-    if (text == null) {
-        return null;
-    }
-
-    if (text == "22 November 20201") {
-        text = "22 November 2021";
-    }
-
-    if (text.Contains("-")) {
-        text = text.Split("-").Last();
-    }
-    if (text.Contains("–")) {
-        text = text.Split("–").Last();
-    }
-    if (text.Contains(" to ")) {
-        text = text.Split(" to ").Last();
-    }
-    return DateTime.Parse(text);
-}
-
-List<string> ParseMPLinks(string body) {
+List<string> ParseMPLinks(string body)
+{
     var links = new List<string>();
     var mpLinkRegex = new Regex(@"<p xmlns=""http://www\.w3\.org/1999/xhtml"">\s+<a href=""(.+)"">.*</a>\s+</p>");
     var matches = mpLinkRegex.Matches(body);
-    foreach (Match match in matches) {
+    foreach (Match match in matches)
+    {
         var link = match.Groups[1].Value;
         links.Add(link);
     }
@@ -151,31 +178,13 @@ List<string> ParseMPLinks(string body) {
     return links;
 }
 
-string RegexOut(string pattern, string input) {
-    var regex = new Regex(pattern, RegexOptions.Singleline);
-    var match = regex.Match(input);
-    if (match.Groups.Count == 1) {
-        return null;
-    }
-    return match.Groups[1].Value;
-}
-
-List<string> RegexOutMulti(string pattern, string input) {
-    var results = new List<string>();
-    var regex = new Regex(pattern, RegexOptions.Singleline);
-    var matches = regex.Matches(input);
-    foreach(Match match in matches)
-    {
-        results.Add(match.Groups[1].Value);
-    }
-    return results;
-}
-
-async Task<string> GetPage(HttpClient client, string path) {
+async Task<string> GetPage(HttpClient client, string path)
+{
     var uri = new Uri(path);
     var filename = uri.Segments.Last();
     var cachePath = "webcache/" + filename;
-    if (File.Exists(cachePath)){
+    if (File.Exists(cachePath))
+    {
         //Console.WriteLine("Loading from cache: " + cachePath);
         return File.ReadAllText(cachePath);
     }
@@ -187,7 +196,9 @@ async Task<string> GetPage(HttpClient client, string path) {
         var content = await response.Content.ReadAsStringAsync();
         File.WriteAllText(cachePath, content);
         return content;
-    } else {
+    }
+    else
+    {
         Console.WriteLine(response.StatusCode);
         var body = await response.Content.ReadAsStringAsync();
         Console.WriteLine(body);
@@ -197,63 +208,62 @@ async Task<string> GetPage(HttpClient client, string path) {
 
 public record MP(string name, string consituency);
 
-public record GiftFromUKSource(Donor donor, decimal? valueInPounds, DateTime? dateReceived, DateTime? dateAccepted, Date? dateRegistered, DateTime? dateUpdated, string description) : Interest(donor, valueInPounds, dateRegistered, dateUpdated);
+public record GiftFromUKSource(Donor? donor, decimal? valueInPounds, IDate? dateReceived, IDate? dateAccepted, Date? dateRegistered, Date? dateUpdated, string description) : Interest(donor, valueInPounds, dateRegistered, dateUpdated);
 
 public record Visit();
 
-public record Interest(Donor donor, decimal? valueInPounds, Date? dateRegistered, DateTime? dateUpdated);
+public record Interest(Donor donor, decimal? valueInPounds, Date? dateRegistered, Date? dateUpdated);
 
-public record Donor(string name, string address, DonorStatus status);
-
-public record DonorStatus();
-
-public record CompanyDonorStatus(string registrationNumber) : DonorStatus();
-
-public record Date(DateTime dateTime) : IDate, IEquatable<DateTime>, IComparable<DateTime> {
-    public bool Equals(DateTime other) {
+public record Date(DateTime dateTime) : IDate, IEquatable<DateTime>, IComparable<DateTime>
+{
+    public bool Equals(DateTime other)
+    {
         return dateTime.Equals(other);
     }
 
     public int CompareTo(DateTime other)
     {
-        if (other == null) return 1;
         return dateTime.CompareTo(other);
     }
 
-    public static bool operator >  (Date operand1, DateTime operand2)
+    public static bool operator >(Date operand1, DateTime operand2)
     {
-        if (operand1 == null) {
+        if (operand1 == null)
+        {
             return false;
         }
-       return operand1.CompareTo(operand2) > 0;
+        return operand1.CompareTo(operand2) > 0;
     }
 
-    public static bool operator <  (Date operand1, DateTime operand2)
+    public static bool operator <(Date operand1, DateTime operand2)
     {
-        if (operand1 == null) {
+        if (operand1 == null)
+        {
             return true;
         }
-       return operand1.CompareTo(operand2) < 0;
+        return operand1.CompareTo(operand2) < 0;
     }
 
-    public static bool operator >=  (Date operand1, DateTime operand2)
+    public static bool operator >=(Date operand1, DateTime operand2)
     {
-        if (operand1 == null) {
+        if (operand1 == null)
+        {
             return false;
         }
-       return operand1.CompareTo(operand2) >= 0;
+        return operand1.CompareTo(operand2) >= 0;
     }
 
-    public static bool operator <=  (Date operand1, DateTime operand2)
+    public static bool operator <=(Date operand1, DateTime operand2)
     {
-        if (operand1 == null) {
+        if (operand1 == null)
+        {
             return true;
         }
-       return operand1.CompareTo(operand2) <= 0;
+        return operand1.CompareTo(operand2) <= 0;
     }
 
 }
 
 public record DateRange(DateTime startDate, DateTime endDate) : IDate;
 
-public interface IDate {}
+public interface IDate { }
