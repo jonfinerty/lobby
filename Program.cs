@@ -7,14 +7,29 @@ var path = "https://publications.parliament.uk/pa/cm/cmregmem/220314/contents.ht
 var content = await GetPage(client, path);
 var mpLinks = ParseMPLinks(content);
 var mpsAndInterests = await Task.WhenAll(mpLinks.Select(async link => await ParseMPPage(client, link)));
-foreach(var mpAndInterests in mpsAndInterests) {
-    Console.WriteLine(mpAndInterests.Item1);
-    foreach(var interest in mpAndInterests.Item2) {
-        Console.WriteLine("\t" + interest);
-    }
-}
+// foreach(var mpAndInterests in mpsAndInterests) {
+//     Console.WriteLine(mpAndInterests.Item1);
+//     foreach(var interest in mpAndInterests.Item2) {
+//         Console.WriteLine("\t" + interest);
+//     }
+// }
+var mpsWhoLoveAGamble = mpsAndInterests
+    .Where(mp => mp.Interests.Any(interest => interest.donor.name == "Betting and Gaming Council"))
+    .Select(mp => mp.Item1).ToList();
+mpsWhoLoveAGamble.ForEach(Console.WriteLine);
+var giftMarchLeaderboard = mpsAndInterests
+    .Select(x => (x.MP, TotalValue: x.Interests
+                                     .Where(interest => interest.dateRegistered >= new DateTime(2022, 03, 01))
+                                     .Sum(interest => interest.valueInPounds)))
+    .OrderByDescending(x => x.TotalValue)
+    .Take(10).ToList();
+giftMarchLeaderboard.ForEach(x => Console.WriteLine($"{x.MP} - £{x.TotalValue}"));
+    
+var totalGiftValue = mpsAndInterests.Sum(x => x.Interests.Sum(interest => interest.valueInPounds));
+Console.WriteLine(totalGiftValue);
 
-async Task<(MP, List<Interest>)> ParseMPPage(HttpClient client, string link) {
+
+async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, string link) {
     // todo, get date out of this
     var url = "https://publications.parliament.uk/pa/cm/cmregmem/220314/" + link;
 
@@ -30,7 +45,7 @@ MP ParseMP(string content) {
     var match = mpNameAndConstiuencyRegex.Match(content);
     var name = match.Groups[1].Value;
     var consituency = match.Groups[2].Value;
-    return new MP(name, consituency, "unknown");
+    return new MP(name, consituency);
 }
 
 List<Interest> ParseUKGifts(string content) {
@@ -77,13 +92,30 @@ GiftFromUKSource ParseUKGift(string content) {
     }
     var parsedDateReceived = ParseDateTime(dateReceived);
     var parsedDateAccepted = ParseDateTime(dateAccepted);
-    var parsedDateRegistered = ParseDateTime(dateRegistered);
+    var parsedDateRegistered = ParseDate(dateRegistered);
     var parsedDateUpdated = ParseDateTime(dateUpdated);
 
     // todo: properly regex out donor status
     var donorStatus = new CompanyDonorStatus(rawDonorStatus);
     var donor = new Donor(donorName, donorAddress, donorStatus);
     return new GiftFromUKSource(donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
+}
+
+Date? ParseDate(string text) {
+    // if (text == "22 November 20201") {
+    //     text = "22 November 2021";
+    // }
+
+    if (text == null) {
+        return null;
+    }
+
+    var date = DateTime.Parse(text);
+    if (date < new DateTime(2010,1,1) || date > new DateTime(2023,1,1)) {
+        throw new Exception("Date fails sanity check: " + text);
+    }
+
+    return new Date(DateTime.Parse(text));
 }
 
 DateTime? ParseDateTime(string text) {
@@ -163,13 +195,13 @@ async Task<string> GetPage(HttpClient client, string path) {
     }
 }
 
-public record MP(string name, string consituency, string twitterHandle);
+public record MP(string name, string consituency);
 
-public record GiftFromUKSource(Donor donor, decimal? amountInPounds, DateTime? dateReceived, DateTime? dateAccepted, DateTime? dateRegistered, DateTime? dateUpdated, string description) : Interest();
+public record GiftFromUKSource(Donor donor, decimal? valueInPounds, DateTime? dateReceived, DateTime? dateAccepted, Date? dateRegistered, DateTime? dateUpdated, string description) : Interest(donor, valueInPounds, dateRegistered, dateUpdated);
 
 public record Visit();
 
-public record Interest();
+public record Interest(Donor donor, decimal? valueInPounds, Date? dateRegistered, DateTime? dateUpdated);
 
 public record Donor(string name, string address, DonorStatus status);
 
@@ -177,3 +209,51 @@ public record DonorStatus();
 
 public record CompanyDonorStatus(string registrationNumber) : DonorStatus();
 
+public record Date(DateTime dateTime) : IDate, IEquatable<DateTime>, IComparable<DateTime> {
+    public bool Equals(DateTime other) {
+        return dateTime.Equals(other);
+    }
+
+    public int CompareTo(DateTime other)
+    {
+        if (other == null) return 1;
+        return dateTime.CompareTo(other);
+    }
+
+    public static bool operator >  (Date operand1, DateTime operand2)
+    {
+        if (operand1 == null) {
+            return false;
+        }
+       return operand1.CompareTo(operand2) > 0;
+    }
+
+    public static bool operator <  (Date operand1, DateTime operand2)
+    {
+        if (operand1 == null) {
+            return true;
+        }
+       return operand1.CompareTo(operand2) < 0;
+    }
+
+    public static bool operator >=  (Date operand1, DateTime operand2)
+    {
+        if (operand1 == null) {
+            return false;
+        }
+       return operand1.CompareTo(operand2) >= 0;
+    }
+
+    public static bool operator <=  (Date operand1, DateTime operand2)
+    {
+        if (operand1 == null) {
+            return true;
+        }
+       return operand1.CompareTo(operand2) <= 0;
+    }
+
+}
+
+public record DateRange(DateTime startDate, DateTime endDate) : IDate;
+
+public interface IDate {}
