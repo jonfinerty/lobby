@@ -1,3 +1,5 @@
+webcache/
+
 *.swp
 *.*~
 project.lock.json
