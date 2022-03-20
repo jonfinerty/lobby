@@ -51,18 +51,9 @@ async Task<List<Interest>> ParseMPPage(HttpClient client, string link)
 
     // let the parsing fun begin
     var content = await GetPage(client, url);
-    var mp = ParseMP(content);
+    var mp = MP.ParseMP(content);
     var interests = ParseUKGifts(mp, content);
     return interests;
-}
-
-MP ParseMP(string content)
-{
-    var mpNameAndConstiuencyRegex = new Regex(@"class=""RegisterOfInterestsMemberHeader"">(.+)\s\((.+)\)</p>");
-    var match = mpNameAndConstiuencyRegex.Match(content);
-    var name = match.Groups[1].Value;
-    var consituency = match.Groups[2].Value;
-    return new MP(name, consituency);
 }
 
 List<Interest> ParseUKGifts(MP mp, string content)
@@ -227,8 +218,6 @@ async Task<string> GetPage(HttpClient client, string path)
         throw new Exception("UH OH");
     }
 }
-
-public record MP(string name, string consituency);
 
 public record GiftFromUKSource(MP mp, Donor? donor, decimal? valueInPounds, IDate? dateReceived, IDate? dateAccepted, Date? dateRegistered, Date? dateUpdated, string description) : Interest(mp, donor, valueInPounds, dateRegistered, dateUpdated);
 
