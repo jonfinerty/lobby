@@ -1,5 +1,5 @@
-public record CompanyDonor(string companyName, string address, string registrationNumber) : Donor(companyName, address);
-public record TradeUnionDonor(string tradeUnionName, string address) : Donor(tradeUnionName, address);
+public record CompanyDonor(string name, string address, string registrationNumber) : Donor(name, address);
+public record TradeUnionDonor(string name, string address) : Donor(name, address);
 public record IndividualDonor(string name, string address) : Donor(name, address);
 public record UnincorporatedAssociationDonor(string name, string address) : Donor(name, address);
 public record IndustrialAndProvidentSocietyDonor(string name, string address, string registrationNumber) : Donor(name, address);
@@ -22,7 +22,7 @@ public record Donor(string name, string address)
         Donor donor;
         if (rawDonorStatus.Contains("company"))
         {
-            var registrationNumber = Utils.RegexOut(@"\s(.+)$", rawDonorStatus);
+            var registrationNumber = Utils.RegexOut(@"\s(\S+)$", rawDonorStatus);
             if (registrationNumber == null)
             {
                 throw new Exception("Registration number null: " + content);

@@ -1,20 +1,33 @@
 ﻿using System.Text.RegularExpressions;
 
 HttpClient client = new HttpClient();
-client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.51 Safari/537.36");
-client.DefaultRequestHeaders.Add("cookie", "__utmc=264344334; __utmz=264344334.1647644283.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); _gid=GA1.2.1528732911.1647644284; ai_user=UQyUd|2022-03-18T22:58:03.874Z; _hjSessionUser_1134021=eyJpZCI6IjFjOTEyNWIxLWI2ODItNWJmNi05OGNiLWVhNWVjNzNiMDk5ZSIsImNyZWF0ZWQiOjE2NDc2NDQyODQxMzksImV4aXN0aW5nIjp0cnVlfQ==; __utma=264344334.13601410.1647644283.1647644283.1647681763.2; __utmt=1; __utmb=264344334.1.10.1647681763; _ga_QQVTWCSLDS=GS1.1.1647681761.2.1.1647681762.0; _ga=GA1.2.13601410.1647644283; _gat_UA-15845045-54=1; __cf_bm=1UBr0M55Lgw3SIoPV6nT4HH6KbUzptjs.VQjfQuKsiI-1647681763-0-AfANkTx8rc7ybsnp0s6B3cpxpjT4inr0jR/qB+XAF3mMc0PBfB3QHqk/s2bXqmfBvCaGPiIWDPSoGTilOpaC2HqU1N2BT1Et6yYT6aqnbt4+9HwJOluym48lcLByvN3Nr6M06xhoM/4wMfkz/RCAg0n753iHJeYa7g1Oz1U/UTlw; ai_session=2bSwW|1647681763293.1|1647681763293.1; _hjIncludedInSessionSample=1; _hjSession_1134021=eyJpZCI6IjE4MWRhNDYwLTQwN2ItNDAzMi1iM2QzLTkxMjMwNDMxMTYyMSIsImNyZWF0ZWQiOjE2NDc2ODE3NjM4ODcsImluU2FtcGxlIjp0cnVlfQ==; _hjIncludedInPageviewSample=1; _hjAbsoluteSessionInProgress=1");
+client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.74 Safari/537.36");
+client.DefaultRequestHeaders.Add("cookie", "uk-parliament.cookie-policy=eyJhbmFseXRpY3MiOnRydWUsIm1hcmtldGluZyI6dHJ1ZSwicHJlZmVyZW5jZXNfc2V0Ijp0cnVlfQ==; ai_user=096QT|2022-03-18T18:34:34.376Z; _hjSessionUser_464108=eyJpZCI6ImRjZmFmZDQxLTEyNTQtNTllNC1iMzUxLTAwMTY4NThhZWQ4NyIsImNyZWF0ZWQiOjE2NDc2Mjg0NzQ1NTUsImV4aXN0aW5nIjpmYWxzZX0=; __utmz=264344334.1647628489.1.1.utmcsr=(direct)|utmccn=(direct)|utmcmd=(none); _hjSessionUser_1134021=eyJpZCI6ImFkZDY1ODY2LTY1MDktNTNkMS1iYTU1LWIyODMyNDJlYjlkYyIsImNyZWF0ZWQiOjE2NDc2Mjg0ODA1MTMsImV4aXN0aW5nIjp0cnVlfQ==; _ga_YRC5R6CGNQ=GS1.1.1647628474.1.1.1647628827.60; __utma=264344334.598715478.1647628474.1647628489.1647715860.2; __utmc=264344334; __utmt=1; _gid=GA1.2.1390487863.1647715861; _gat_UA-15845045-54=1; __cf_bm=H9o7cjGiVbN5MFhTh4y1Fu4QJ4JFee46hXEKIzGa.Ig-1647715859-0-Ac4tTo8shdHHwoNFVXU3EkCsmgsyiJx/N/U5VRJAGfWpIP5CqF8bYHD2u8MkWC1Y9S61FHMMBjrOHJ3QmfoVfzXxSjiveVUFfGp0lfyXZXbTv367+hI9Frc5L2iIHj4ydBYq2Ed/XmLaTEa0hcvWT+mKnrDVndUGgIVWgLm9iggD; _hjIncludedInSessionSample=1; _hjSession_1134021=eyJpZCI6IjRmNjMzZmYxLWFkYmMtNGEzMC1iMjk4LWY3MzE0ZjZjMzhjNCIsImNyZWF0ZWQiOjE2NDc3MTU4NjA4MDMsImluU2FtcGxlIjp0cnVlfQ==; _hjIncludedInPageviewSample=1; _hjAbsoluteSessionInProgress=1; _ga_QQVTWCSLDS=GS1.1.1647715860.2.1.1647715869.0; _ga=GA1.2.598715478.1647628474; __utmb=264344334.2.10.1647715860; ai_session=4eu75|1647715860831|1647715869898");
 var path = "https://publications.parliament.uk/pa/cm/cmregmem/220314/contents.htm";
 var content = await GetPage(client, path);
 var mpLinks = ParseMPLinks(content);
-var mpsAndInterests = await Task.WhenAll(mpLinks.Select(async link => await ParseMPPage(client, link)));
-foreach (var mpAndInterests in mpsAndInterests)
-{
-    Console.WriteLine(mpAndInterests.Item1);
-    foreach (var interest in mpAndInterests.Item2)
-    {
-        Console.WriteLine("\t" + interest);
-    }
+var interests = new List<Interest>();
+foreach (var mpLink in mpLinks) {
+    var mpInterests = await ParseMPPage(client, mpLink);
+    interests.AddRange(mpInterests);
 }
+
+var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
+    Donor = donor,
+    TotalValue = interests.Sum(interest => interest.valueInPounds),
+    MPs = interests.Select(interest => interest.mp)
+}).OrderBy(x => x.TotalValue);
+
+foreach(var donorGroup in groupedByDonor) {
+    Console.WriteLine(donorGroup.Donor);
+    Console.WriteLine("£" + donorGroup.TotalValue);
+    foreach(var mp in donorGroup.MPs) {
+        Console.WriteLine(mp);
+    }
+    Console.WriteLine("----------------");
+}
+
+
 // var mpsWhoLoveAGamble = mpsAndInterests
 //     .Where(mp => mp.Interests.Any(interest => interest.donor?.name == "Betting and Gaming Council"))
 //     .Select(mp => mp.Item1).ToList();
@@ -31,16 +44,16 @@ foreach (var mpAndInterests in mpsAndInterests)
 // Console.WriteLine(totalGiftValue);
 
 
-async Task<(MP MP, List<Interest> Interests)> ParseMPPage(HttpClient client, string link)
+async Task<List<Interest>> ParseMPPage(HttpClient client, string link)
 {
     // todo, get date out of this
     var url = "https://publications.parliament.uk/pa/cm/cmregmem/220314/" + link;
 
     // let the parsing fun begin
     var content = await GetPage(client, url);
-    var MP = ParseMP(content);
-    var gifts = ParseUKGifts(content);
-    return (MP, gifts);
+    var mp = ParseMP(content);
+    var interests = ParseUKGifts(mp, content);
+    return interests;
 }
 
 MP ParseMP(string content)
@@ -52,7 +65,7 @@ MP ParseMP(string content)
     return new MP(name, consituency);
 }
 
-List<Interest> ParseUKGifts(string content)
+List<Interest> ParseUKGifts(MP mp, string content)
 {
     var gifts = new List<Interest>();
     var rawGifts = Utils.RegexOut(@"<strong>3\. Gifts, benefits and hospitality from UK sources</strong></p>(.+?)(<strong>|class=""spacer"")", content); // end with strong or class="prevNext"
@@ -73,13 +86,13 @@ Donor status: company, registration 03822566<br/>
     var rawGiftList = Utils.RegexOutMulti(@"<p xmlns=""http://www.w3.org/1999/xhtml"" class=""indent"">(.+?)</p>", rawGifts);
     foreach (var rawGift in rawGiftList)
     {
-        var gift = ParseUKGift(rawGift);
+        var gift = ParseUKGift(mp, rawGift);
         gifts.Add(gift);
     }
     return gifts;
 }
 
-GiftFromUKSource ParseUKGift(string content)
+GiftFromUKSource ParseUKGift(MP mp, string content)
 {
 
     var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)<br/>", content);
@@ -106,7 +119,7 @@ GiftFromUKSource ParseUKGift(string content)
     var parsedDateUpdated = ParseDate(dateUpdated);
 
     var donor = Donor.ParseDonor(content);
-    return new GiftFromUKSource(donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
+    return new GiftFromUKSource(mp, donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
 }
 
 IDate? ParseDateOrRange(string? text)
@@ -217,11 +230,11 @@ async Task<string> GetPage(HttpClient client, string path)
 
 public record MP(string name, string consituency);
 
-public record GiftFromUKSource(Donor? donor, decimal? valueInPounds, IDate? dateReceived, IDate? dateAccepted, Date? dateRegistered, Date? dateUpdated, string description) : Interest(donor, valueInPounds, dateRegistered, dateUpdated);
+public record GiftFromUKSource(MP mp, Donor? donor, decimal? valueInPounds, IDate? dateReceived, IDate? dateAccepted, Date? dateRegistered, Date? dateUpdated, string description) : Interest(mp, donor, valueInPounds, dateRegistered, dateUpdated);
 
 public record Visit();
 
-public record Interest(Donor donor, decimal? valueInPounds, Date? dateRegistered, Date? dateUpdated);
+public record Interest(MP mp, Donor donor, decimal? valueInPounds, Date? dateRegistered, Date? dateUpdated);
 
 public record Date(DateTime dateTime) : IDate, IEquatable<DateTime>, IComparable<DateTime>
 {
