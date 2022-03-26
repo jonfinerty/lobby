@@ -24,4 +24,69 @@ public class Utils
         }
         return results;
     }
+
+    public static DateRange? ParseDateRange(string? text)
+    {
+        if (text == null)
+        {
+            return null;
+        }
+
+        if (text == "22 November 20201")
+        {
+            text = "22 November 2021";
+        }
+
+        var seperators = new string[] { " - ", "-", " – ", "–", " to " };
+        foreach (var seperator in seperators)
+        {
+            if (text.Contains(seperator))
+            {
+                var endDate = DateTime.Parse(text.Split(seperator).Last());
+
+                var startDateRaw = text.Split(seperator).First();
+                DateTime startDate;
+
+                var intParseSuccess = int.TryParse(startDateRaw, out var startDay);
+                if (intParseSuccess)
+                {
+                    startDate = new DateTime(endDate.Year, endDate.Month, startDay);
+                }
+                else
+                {
+                    startDate = DateTime.Parse(startDateRaw);
+                }
+
+                return new DateRange(startDate, endDate);
+            }
+        }
+        var singleDayRange = ParseDate(text);
+        if (singleDayRange == null)
+        {
+            return null;
+        }
+        else
+        {
+            return new DateRange(singleDayRange.Value, singleDayRange.Value);
+        }
+    }
+
+    public static DateTime? ParseDate(string? text)
+    {
+        if (text == null)
+        {
+            return null;
+        }
+
+        var date = DateTime.Parse(text);
+        if (date < new DateTime(2010, 1, 1) || date > new DateTime(2023, 1, 1))
+        {
+            throw new Exception("Date fails sanity check: " + text);
+        }
+
+        return DateTime.Parse(text);
+    }
+
 }
+
+public record DateRange(DateTime startDate, DateTime endDate);
