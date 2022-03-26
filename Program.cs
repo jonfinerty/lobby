@@ -1,4 +1,5 @@
 ﻿using System.Text.RegularExpressions;
+using System.Globalization;
 
 HttpClient client = new HttpClient();
 client.DefaultRequestHeaders.UserAgent.ParseAdd("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.74 Safari/537.36");
@@ -12,21 +13,34 @@ foreach (var mpLink in mpLinks) {
     interests.AddRange(mpInterests);
 }
 
-var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
-    Donor = donor,
-    TotalValue = interests.Sum(interest => interest.valueInPounds),
-    MPs = interests.Select(interest => interest.mp)
-}).OrderBy(x => x.TotalValue);
+var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered > new DateTime(2022,03,01));
+interestSinceLastRegister.Select(InterestToTweets).ToList()
+.ForEach(i => {
+    Console.WriteLine(i[0]);
+    Console.WriteLine(i[1]);
+    Console.WriteLine();
+});
+// var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
+//     Donor = donor,
+//     TotalValue = interests.Sum(interest => interest.valueInPounds),
+//     MPs = interests.Select(interest => interest.mp)
+// }).OrderBy(x => x.TotalValue);
 
-foreach(var donorGroup in groupedByDonor) {
-    Console.WriteLine(donorGroup.Donor);
-    Console.WriteLine("£" + donorGroup.TotalValue);
-    foreach(var mp in donorGroup.MPs) {
-        Console.WriteLine(mp);
-    }
-    Console.WriteLine("----------------");
+// foreach(var donorGroup in groupedByDonor) {
+//     Console.WriteLine(donorGroup.Donor);
+//     Console.WriteLine("£" + donorGroup.TotalValue);
+//     foreach(var mp in donorGroup.MPs) {
+//         Console.WriteLine(mp);
+//     }
+//     Console.WriteLine("----------------");
+// }
+
+string[] InterestToTweets(Interest interest) {
+    return new string[]{
+        $"{interest.mp.twitterHandle} MP for {interest.mp.consituency} accepted a gift worth {interest.valueInPounds:C} from {interest.donor.name} of \"{interest.description}\"",
+        $"The gift was accepted on {interest.dateAccepted?.ToString("dd MMMM yyyy")} and registered on {interest.dateRegistered?.ToString("dd MMMM yyyy")}. All official details here: {interest.mp.registerLink}"
+    };
 }
-
 
 // var mpsWhoLoveAGamble = mpsAndInterests
 //     .Where(mp => mp.Interests.Any(interest => interest.donor?.name == "Betting and Gaming Council"))
@@ -51,7 +65,7 @@ async Task<List<Interest>> ParseMPPage(HttpClient client, string link)
 
     // let the parsing fun begin
     var content = await GetPage(client, url);
-    var mp = MP.ParseMP(content);
+    var mp = MP.ParseMP(url, content);
     var interests = ParseUKGifts(mp, content);
     return interests;
 }
@@ -86,8 +100,8 @@ Donor status: company, registration 03822566<br/>
 GiftFromUKSource ParseUKGift(MP mp, string content)
 {
 
-    var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)<br/>", content);
-    var value = Utils.RegexOut(@"£(.+?)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
+    var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)(, value|, total value|; value|<br/>)", content);
+    var value = Utils.RegexOut(@"£([0-9,]+\.?[0-9]*)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
     var dateReceived = Utils.RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
     var dateAccepted = Utils.RegexOut(@"Date accepted: (.+?)( \(|<br/>)", content);
     var dateRegistered = Utils.RegexOut(@"\(Registered (.+?)(\)|;)", content);
@@ -104,8 +118,8 @@ GiftFromUKSource ParseUKGift(MP mp, string content)
         throw e;
     }
 
-    var parsedDateReceived = ParseDateOrRange(dateReceived);
-    var parsedDateAccepted = ParseDateOrRange(dateAccepted);
+    var parsedDateReceived = ParseDateRange(dateReceived);
+    var parsedDateAccepted = ParseDateRange(dateAccepted)?.startDate;
     var parsedDateRegistered = ParseDate(dateRegistered);
     var parsedDateUpdated = ParseDate(dateUpdated);
 
@@ -113,7 +127,7 @@ GiftFromUKSource ParseUKGift(MP mp, string content)
     return new GiftFromUKSource(mp, donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
 }
 
-IDate? ParseDateOrRange(string? text)
+DateRange? ParseDateRange(string? text)
 {
     if (text == null)
     {
@@ -125,43 +139,38 @@ IDate? ParseDateOrRange(string? text)
         text = "22 November 2021";
     }
 
-    if (text.Contains("-"))
-    {
-        return ParseDateRange(text, "-");
-    }
-
     var seperators = new string[] { " - ", "-", " – ", "–", " to " };
     foreach (var seperator in seperators)
     {
         if (text.Contains(seperator))
         {
-            return ParseDateRange(text, seperator);
+            var endDate = DateTime.Parse(text.Split(seperator).Last());
+
+            var startDateRaw = text.Split(seperator).First();
+            DateTime startDate;
+
+            var intParseSuccess = int.TryParse(startDateRaw, out var startDay);
+            if (intParseSuccess)
+            {
+                startDate = new DateTime(endDate.Year, endDate.Month, startDay);
+            }
+            else
+            {
+                startDate = DateTime.Parse(startDateRaw);
+            }
+
+            return new DateRange(startDate, endDate);
         }
     }
-    return ParseDate(text);
+    var singleDayRange = ParseDate(text);
+    if (singleDayRange == null) {
+        return null;
+    } else {
+        return new DateRange(singleDayRange.Value, singleDayRange.Value);
+    }
 }
 
-DateRange ParseDateRange(string text, string seperator)
-{
-    var endDate = DateTime.Parse(text.Split(seperator).Last());
-
-    var startDateRaw = text.Split(seperator).First();
-    DateTime startDate;
-
-    var intParseSuccess = int.TryParse(startDateRaw, out var startDay);
-    if (intParseSuccess)
-    {
-        startDate = new DateTime(endDate.Year, endDate.Month, startDay);
-    }
-    else
-    {
-        startDate = DateTime.Parse(startDateRaw);
-    }
-
-    return new DateRange(startDate, endDate);
-}
-
-Date? ParseDate(string? text)
+DateTime? ParseDate(string? text)
 {
     if (text == null)
     {
@@ -174,7 +183,7 @@ Date? ParseDate(string? text)
         throw new Exception("Date fails sanity check: " + text);
     }
 
-    return new Date(DateTime.Parse(text));
+    return DateTime.Parse(text);
 }
 
 List<string> ParseMPLinks(string body)
@@ -219,62 +228,12 @@ async Task<string> GetPage(HttpClient client, string path)
     }
 }
 
-public record GiftFromUKSource(MP mp, Donor? donor, decimal? valueInPounds, IDate? dateReceived, IDate? dateAccepted, Date? dateRegistered, Date? dateUpdated, string description) : Interest(mp, donor, valueInPounds, dateRegistered, dateUpdated);
+public record GiftFromUKSource(MP mp, Donor? donor, decimal? valueInPounds, DateRange? dateReceived, DateTime? dateAccepted, DateTime? dateRegistered, DateTime? dateUpdated, string description) : Interest(mp, donor, valueInPounds, dateAccepted, dateRegistered, dateUpdated, description);
 
 public record Visit();
 
-public record Interest(MP mp, Donor donor, decimal? valueInPounds, Date? dateRegistered, Date? dateUpdated);
+public record Interest(MP mp, Donor donor, decimal? valueInPounds, DateTime? dateAccepted, DateTime? dateRegistered, DateTime? dateUpdated, string description);
 
-public record Date(DateTime dateTime) : IDate, IEquatable<DateTime>, IComparable<DateTime>
-{
-    public bool Equals(DateTime other)
-    {
-        return dateTime.Equals(other);
-    }
-
-    public int CompareTo(DateTime other)
-    {
-        return dateTime.CompareTo(other);
-    }
-
-    public static bool operator >(Date operand1, DateTime operand2)
-    {
-        if (operand1 == null)
-        {
-            return false;
-        }
-        return operand1.CompareTo(operand2) > 0;
-    }
-
-    public static bool operator <(Date operand1, DateTime operand2)
-    {
-        if (operand1 == null)
-        {
-            return true;
-        }
-        return operand1.CompareTo(operand2) < 0;
-    }
-
-    public static bool operator >=(Date operand1, DateTime operand2)
-    {
-        if (operand1 == null)
-        {
-            return false;
-        }
-        return operand1.CompareTo(operand2) >= 0;
-    }
-
-    public static bool operator <=(Date operand1, DateTime operand2)
-    {
-        if (operand1 == null)
-        {
-            return true;
-        }
-        return operand1.CompareTo(operand2) <= 0;
-    }
-
-}
-
-public record DateRange(DateTime startDate, DateTime endDate) : IDate;
+public record DateRange(DateTime startDate, DateTime endDate);
 
 public interface IDate { }
