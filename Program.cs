@@ -1,5 +1,6 @@
 ﻿
-var interests = await Interest.GetInterests("220314");
+var latestRegisterDateStamp = "220314";
+var interests = await Interest.GetInterests(latestRegisterDateStamp);
 
 var latestRegisterUpdateEndDate = new DateTime(2022, 03, 14);
 var previousRegisterUpdateEndDate = new DateTime(2022, 02, 28);
@@ -16,6 +17,14 @@ var feb2022 = new DateTime(2022, 02, 01);
 //     Console.WriteLine();
 // });
 
+// string[] InterestToTweets(Interest interest)
+// {
+//     return new string[]{
+//         $"{interest.mp.twitterHandle} MP for {interest.mp.consituency} accepted a gift worth {interest.valueInPounds:C} from {interest.donor.name} of \"{interest.description}\"",
+//         $"The gift was accepted on {interest.dateAccepted?.ToString("dd MMMM yyyy")} and registered on {interest.dateRegistered?.ToString("dd MMMM yyyy")}. All official details here: {interest.mp.registerLink}"
+//     };
+// }
+
 Top3GifteesByMonth(interests, feb2022);
 Top3GiftersByMoneyByMonth(interests, feb2022);
 Top3GiftersByNumberOfMPsByMonth(interests, feb2022);
@@ -25,6 +34,7 @@ YearlySummary(interests);
 YearlyTop3Giftees(interests);
 YearlyTop3GiftersByMoney(interests);
 
+FollowUpTweet(latestRegisterDateStamp);
 // var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
 //     Donor = donor,
 //     TotalValue = interests.Sum(interest => interest.valueInPounds),
@@ -39,6 +49,12 @@ YearlyTop3GiftersByMoney(interests);
 //     }
 //     Console.WriteLine("----------------");
 // }
+
+void FollowUpTweet(string datestamp) {
+    var generalLink = "https://publications.parliament.uk/pa/cm/cmregmem/" + datestamp + "/contents.htm";
+    var tweet = $"All details can be found in the official Register of Members' Financial Interests: {generalLink}";
+    Console.WriteLine(tweet);
+}
 
 void RegisterUpdateSummary(IEnumerable<Interest> interests, DateTime start, DateTime end)
 {
@@ -103,7 +119,7 @@ void YearlyTop3GiftersByMoney(IEnumerable<Interest> interests)
     .Take(3)
     .ToList();
 
-    var tweet = $@"Largest donors to MPs so far this year
+    var tweet = $@"Top donors to MPs so far this year
 
 1. {results[0].donor?.name} - {FormatGiftsToMPs(results[0].giftCount, results[0].mps.Count(), results[0].totalValue)}
 2. {results[1].donor?.name} - {FormatGiftsToMPs(results[1].giftCount, results[1].mps.Count(), results[1].totalValue)}
@@ -157,11 +173,13 @@ void Top3GifteesByMonth(IEnumerable<Interest> interests, DateTime month)
         .Take(3)
         .ToList();
 
-    var tweet = $@"Most gifted MPs of the last month (gifts reg. in {month.ToString("MMM yyyy")})
+    var tweet = $@"{month.ToString("MMM")}'s most gifted MPs
 
-1. {results[0].mp.ToTweetFormat()} - {FormatInterestsSum(results[0].interests)}
-2. {results[1].mp.ToTweetFormat()} - {FormatInterestsSum(results[1].interests)}
-3. {results[2].mp.ToTweetFormat()} - {FormatInterestsSum(results[2].interests)}";
+1. {results[0].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {FormatInterestsSum(results[0].interests)}
+2. {results[1].mp.ToTweetFormat()} - {FormatGifts(results[1].interests.Count())} worth a total of {FormatInterestsSum(results[1].interests)}
+3. {results[2].mp.ToTweetFormat()} - {FormatGifts(results[2].interests.Count())} worth a total of {FormatInterestsSum(results[2].interests)}";
+
+//"Of all gifts *registered* in {month.ToString("MMM yyyy")}";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);

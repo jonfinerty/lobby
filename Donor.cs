@@ -21,6 +21,7 @@ public abstract record Donor
     public static Donor? ParseDonor(string content)
     {
         var donorName = Utils.RegexOut(@"Name of donor: (.+?)<br/>", content);
+        donorName = donorName?.Replace(" Limited", " Ltd");
         var donorAddress = Utils.RegexOut(@"Address of donor: (.+?)<br/>", content);
         var rawDonorStatus = Utils.RegexOut(@"Donor status: (.+?)<br/>", content);
 
