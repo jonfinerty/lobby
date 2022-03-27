@@ -16,11 +16,14 @@ var feb2022 = new DateTime(2022, 02, 01);
 //     Console.WriteLine();
 // });
 
-Top5Giftees(interests, feb2022);
-Top3GiftersByMoney(interests, feb2022);
-Top3GiftersByNumberOfMPs(interests, feb2022);
+Top3GifteesByMonth(interests, feb2022);
+Top3GiftersByMoneyByMonth(interests, feb2022);
+Top3GiftersByNumberOfMPsByMonth(interests, feb2022);
 
-Recap(interests, latestRegisterUpdateStartDate, latestRegisterUpdateEndDate);
+RegisterUpdateSummary(interests, latestRegisterUpdateStartDate, latestRegisterUpdateEndDate);
+YearlySummary(interests);
+YearlyTop3Giftees(interests);
+YearlyTop3GiftersByMoney(interests);
 
 // var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
 //     Donor = donor,
@@ -37,7 +40,7 @@ Recap(interests, latestRegisterUpdateStartDate, latestRegisterUpdateEndDate);
 //     Console.WriteLine("----------------");
 // }
 
-void Recap(IEnumerable<Interest> interests, DateTime start, DateTime end)
+void RegisterUpdateSummary(IEnumerable<Interest> interests, DateTime start, DateTime end)
 {
     var results = interests
         .Where(interest => interest.dateRegistered >= start && interest.dateRegistered <= end);
@@ -49,7 +52,99 @@ void Recap(IEnumerable<Interest> interests, DateTime start, DateTime end)
     Console.WriteLine();
 }
 
-void Top5Giftees(IEnumerable<Interest> interests, DateTime month)
+void YearlySummary(IEnumerable<Interest> interests)
+{
+    var results = interests
+        .Where(interest => interest.dateRegistered >= new DateTime(2022, 01, 01));
+
+    var tweet = $@"Since the start of the year {results.Select(i => i.mp).Distinct().Count()} MPs have registered a total of {results.Count()} gifts from UK sources with a combined value of {results.Sum(i => i.valueInPounds):C}";
+    Console.WriteLine(tweet);
+    Console.WriteLine(tweet.Length);
+    Console.WriteLine();
+}
+
+void YearlyTop3Giftees(IEnumerable<Interest> interests)
+{
+    var results = interests
+        .Where(interest => interest.dateRegistered >= new DateTime(2022, 01, 01))
+        .GroupBy(interest => interest.mp, (mp, interests) => new
+        {
+            mp = mp,
+            interests = interests
+        })
+        .OrderByDescending(x => x.interests.Sum(i => i.valueInPounds))
+        .Take(3)
+        .ToList();
+
+    var tweet = $@"Most gifted MPs so far this year
+
+1. {results[0].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[0].interests.Sum(i => i.valueInPounds):C}
+2. {results[1].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[1].interests.Sum(i => i.valueInPounds):C}
+3. {results[2].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[2].interests.Sum(i => i.valueInPounds):C}";
+
+    Console.WriteLine(tweet);
+    Console.WriteLine(tweet.Length);
+    Console.WriteLine();
+}
+
+void YearlyTop3GiftersByMoney(IEnumerable<Interest> interests)
+{
+    var results = interests
+        .Where(interest => interest.dateRegistered >= new DateTime(2022, 01, 01))
+    .Where(interest => interest.donor != null)
+    .GroupBy(interest => interest.donor, (donor, interests) => new
+    {
+        donor = donor,
+        giftCount = interests.Count(),
+        mps = interests.Select(interest => interest.mp).Distinct(),
+        totalValue = interests.Sum(interest => interest.valueInPounds)
+    })
+    .OrderByDescending(x => x.totalValue)
+    .Take(3)
+    .ToList();
+
+    var tweet = $@"Largest donors to MPs so far this year
+
+1. {results[0].donor?.name} - {FormatGiftsToMPs(results[0].giftCount, results[0].mps.Count(), results[0].totalValue)}
+2. {results[1].donor?.name} - {FormatGiftsToMPs(results[1].giftCount, results[1].mps.Count(), results[1].totalValue)}
+3. {results[2].donor?.name} - {FormatGiftsToMPs(results[2].giftCount, results[2].mps.Count(), results[2].totalValue)}";
+
+    Console.WriteLine(tweet);
+    Console.WriteLine(tweet.Length);
+    Console.WriteLine();
+}
+
+string FormatGifts(int giftCount)
+{
+    if (giftCount == 1)
+    {
+        return "1 gift";
+    }
+    else
+    {
+        return $"{giftCount} gifts";
+    }
+}
+
+string FormatGiftsToMPs(int giftCount, int mpCount, decimal? totalValue)
+{
+    var result = FormatGifts(giftCount);
+
+    if (mpCount == 1)
+    {
+        result += " to 1 MP";
+    }
+    else
+    {
+        result += $" to {mpCount} MPs";
+    }
+
+    result += $" worth a total of {totalValue:C}";
+
+    return result;
+}
+
+void Top3GifteesByMonth(IEnumerable<Interest> interests, DateTime month)
 {
     var results = interests
         .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
@@ -59,26 +154,21 @@ void Top5Giftees(IEnumerable<Interest> interests, DateTime month)
             interests = interests
         })
         .OrderByDescending(x => x.interests.Sum(i => i.valueInPounds))
-        .Take(5)
+        .Take(3)
         .ToList();
-    // .ForEach(x => {
-    //     Console.WriteLine(x.mp);
-    //     Console.WriteLine(x.interests.Sum(i => i.valueInPounds));
-    //     Console.WriteLine();
-    // });
-
 
     var tweet = $@"Most gifted MPs of the last month (gifts reg. in {month.ToString("MMM yyyy")})
-    1. {results[0].mp.ToTweetFormat()} - {results[0].interests.Sum(i => i.valueInPounds):C}
-    2. {results[1].mp.ToTweetFormat()} - {results[1].interests.Sum(i => i.valueInPounds):C}
-    3. {results[2].mp.ToTweetFormat()} - {results[2].interests.Sum(i => i.valueInPounds):C}";
+
+1. {results[0].mp.ToTweetFormat()} - {FormatInterestsSum(results[0].interests)}
+2. {results[1].mp.ToTweetFormat()} - {FormatInterestsSum(results[1].interests)}
+3. {results[2].mp.ToTweetFormat()} - {FormatInterestsSum(results[2].interests)}";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);
     Console.WriteLine();
 }
 
-void Top3GiftersByMoney(IEnumerable<Interest> interests, DateTime month)
+void Top3GiftersByMoneyByMonth(IEnumerable<Interest> interests, DateTime month)
 {
     var results = interests
     .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
@@ -93,16 +183,22 @@ void Top3GiftersByMoney(IEnumerable<Interest> interests, DateTime month)
     .ToList();
 
     var tweet = $@"Largest donors to MPs in the last month (gifts reg. in {month.ToString("MMM yyyy")})
-    1. {results[0].donor?.name} - {results[0].interests.Sum(i => i.valueInPounds):C}
-    2. {results[1].donor?.name} - {results[1].interests.Sum(i => i.valueInPounds):C}
-    3. {results[2].donor?.name} - {results[2].interests.Sum(i => i.valueInPounds):C}";
+
+1. {results[0].donor?.name} - {FormatInterestsSum(results[0].interests)}
+2. {results[1].donor?.name} - {FormatInterestsSum(results[1].interests)}
+3. {results[2].donor?.name} - {FormatInterestsSum(results[2].interests)}";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);
     Console.WriteLine();
 }
 
-void Top3GiftersByNumberOfMPs(IEnumerable<Interest> interests, DateTime month)
+string FormatInterestsSum(IEnumerable<Interest> interests)
+{
+    return $"{interests.Sum(i => i.valueInPounds):C}";
+}
+
+void Top3GiftersByNumberOfMPsByMonth(IEnumerable<Interest> interests, DateTime month)
 {
     var results = interests
     .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
