@@ -8,6 +8,8 @@ public record FriendlySocietyDonor(string name, string address) : Donor(name, ad
 public record LimitedLiabilityPartnershipDonor(string name, string address) : Donor(name, address);
 public record Donor(string name, string address)
 {
+    static List<CompanyDonor> donors = new List<CompanyDonor>();
+
     public static Donor? ParseDonor(string content)
     {
         var donorName = Utils.RegexOut(@"Name of donor: (.+?)<br/>", content);
@@ -27,7 +29,17 @@ public record Donor(string name, string address)
             {
                 throw new Exception("Registration number null: " + content);
             }
-            donor = new CompanyDonor(donorName, donorAddress, registrationNumber);
+
+            var existingDonor = donors.FirstOrDefault(d => d.registrationNumber == registrationNumber);
+
+            if (existingDonor != null) {
+                donor = existingDonor;
+            } else {
+                var company = new CompanyDonor(donorName, donorAddress, registrationNumber);
+                donor = company;
+                donors.Add(company);
+            }
+
         }
         else if (rawDonorStatus.Contains("individual"))
         {

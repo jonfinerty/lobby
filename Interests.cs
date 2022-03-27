@@ -4,7 +4,7 @@ public record GiftFromUKSource(MP mp, Donor? donor, decimal? valueInPounds, Date
 
 public record Visit();
 
-public record Interest(MP mp, Donor donor, decimal? valueInPounds, DateTime? dateAccepted, DateTime? dateRegistered, DateTime? dateUpdated, string description)
+public record Interest(MP mp, Donor? donor, decimal? valueInPounds, DateTime? dateAccepted, DateTime? dateRegistered, DateTime? dateUpdated, string description)
 {
 
     // datestamp example: 220314
@@ -70,7 +70,8 @@ public record Interest(MP mp, Donor donor, decimal? valueInPounds, DateTime? dat
     static GiftFromUKSource ParseUKGift(MP mp, string content)
     {
 
-        var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)(, value|, total value|; value|<br/>)", content);
+        // Amount of donation, or nature and value if donation in kind
+        var description = ParseDescription(content);
         var value = Utils.RegexOut(@"£([0-9,]+\.?[0-9]*)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
         var dateReceived = Utils.RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
         var dateAccepted = Utils.RegexOut(@"Date accepted: (.+?)( \(|<br/>)", content);
@@ -95,6 +96,20 @@ public record Interest(MP mp, Donor donor, decimal? valueInPounds, DateTime? dat
 
         var donor = Donor.ParseDonor(content);
         return new GiftFromUKSource(mp, donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
+    }
+
+    static string ParseDescription(string content) {
+        //>Amount of donation or nature and value if donation in kind:
+        var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)(, value|, total value|; value|<br/>)", content);
+        if (description == null) {
+            description = Utils.RegexOut(@"Amount of donation, or nature and value if benefit in kind: (.+?)(, value|, total value|; value|<br/>)", content);
+        }
+        
+        if (description == null) {
+            return content;
+        }
+
+        return description;
     }
 
     static List<string> ParseMPLinks(string body)
