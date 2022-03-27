@@ -72,7 +72,7 @@ public record MP(string name, string consituency, string? twitterHandle, string 
 
     public class TwitterMP
     {
-        public string? Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         [Name("Screen name")]
         public string? ScreenName { get; set; }
         public string? Constituency { get; set; }
