@@ -98,14 +98,17 @@ public record Interest(MP mp, Donor? donor, decimal? valueInPounds, DateTime? da
         return new GiftFromUKSource(mp, donor, parsedValue, parsedDateReceived, parsedDateAccepted, parsedDateRegistered, parsedDateUpdated, description);
     }
 
-    static string ParseDescription(string content) {
+    static string ParseDescription(string content)
+    {
         //>Amount of donation or nature and value if donation in kind:
         var description = Utils.RegexOut(@"Amount of donation or nature and value if donation in kind: (.+?)(, value|, total value|; value|<br/>)", content);
-        if (description == null) {
+        if (description == null)
+        {
             description = Utils.RegexOut(@"Amount of donation, or nature and value if benefit in kind: (.+?)(, value|, total value|; value|<br/>)", content);
         }
-        
-        if (description == null) {
+
+        if (description == null)
+        {
             return content;
         }
 

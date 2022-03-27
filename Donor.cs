@@ -6,8 +6,16 @@ public record IndustrialAndProvidentSocietyDonor(string name, string address, st
 public record OtherDonor(string name, string address, string? type) : Donor(name, address);
 public record FriendlySocietyDonor(string name, string address) : Donor(name, address);
 public record LimitedLiabilityPartnershipDonor(string name, string address) : Donor(name, address);
-public record Donor(string name, string address)
+public abstract record Donor
 {
+    public Donor(string name, string address)
+    {
+        this.name = name;
+        this.address = address;
+    }
+    public string name { get; set; }
+    public string address { get; init; }
+
     static List<CompanyDonor> donors = new List<CompanyDonor>();
 
     public static Donor? ParseDonor(string content)
@@ -32,9 +40,16 @@ public record Donor(string name, string address)
 
             var existingDonor = donors.FirstOrDefault(d => d.registrationNumber == registrationNumber);
 
-            if (existingDonor != null) {
+            if (existingDonor != null)
+            {
                 donor = existingDonor;
-            } else {
+                if (donorName.Length > donor.name.Length)
+                {
+                    donor.name = donorName;
+                }
+            }
+            else
+            {
                 var company = new CompanyDonor(donorName, donorAddress, registrationNumber);
                 donor = company;
                 donors.Add(company);

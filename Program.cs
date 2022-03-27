@@ -3,17 +3,17 @@ var interests = await Interest.GetInterests("220314");
 
 var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered > new DateTime(2022, 03, 01));
 var interestInTheLastMonth = interests.Where(interest => interest.dateRegistered > new DateTime(2022, 02, 15));
-interestSinceLastRegister.Select(InterestToTweets).ToList()
-.ForEach(i =>
-{
-    Console.WriteLine(i[0]);
-    Console.WriteLine(i[1]);
-    Console.WriteLine();
-});
+// interestSinceLastRegister.Select(InterestToTweets).ToList()
+// .ForEach(i =>
+// {
+//     Console.WriteLine(i[0]);
+//     Console.WriteLine(i[1]);
+//     Console.WriteLine();
+// });
 
-Top5Giftees(interestSinceLastRegister);
-Top3GiftersByMoney(interestInTheLastMonth);
-Top3GiftersByNumberOfMPs(interestInTheLastMonth);
+Top5Giftees(interests, new DateTime(2022, 02, 01));
+Top3GiftersByMoney(interestInTheLastMonth, new DateTime(2022, 02, 01));
+Top3GiftersByNumberOfMPs(interestInTheLastMonth, new DateTime(2022, 02, 01));
 
 // var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
 //     Donor = donor,
@@ -33,65 +33,80 @@ Top3GiftersByNumberOfMPs(interestInTheLastMonth);
 // Top 5 MPs by money received
 // Top 3 gifters by money given
 // Top 3 by number of MPs given to
-void Top5Giftees(IEnumerable<Interest> interests) {
-    interests.GroupBy(interest => interest.mp, (mp, interests) => new {
-        mp = mp,
-        interests = interests 
-    })
-    .OrderByDescending(x => x.interests.Sum(i => i.valueInPounds))
-    .Take(5)
-    .ToList()
-    .ForEach(x => {
-        Console.WriteLine(x.mp);
-        Console.WriteLine(x.interests.Sum(i => i.valueInPounds));
-        Console.WriteLine();
-    });
+void Top5Giftees(IEnumerable<Interest> interests, DateTime month)
+{
+    var results = interests
+        .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
+        .GroupBy(interest => interest.mp, (mp, interests) => new
+        {
+            mp = mp,
+            interests = interests
+        })
+        .OrderByDescending(x => x.interests.Sum(i => i.valueInPounds))
+        .Take(5)
+        .ToList();
+    // .ForEach(x => {
+    //     Console.WriteLine(x.mp);
+    //     Console.WriteLine(x.interests.Sum(i => i.valueInPounds));
+    //     Console.WriteLine();
+    // });
+
+
+    var tweet = $@"Most gifted MPs of the last month ({month.ToString("MMM yyyy")})
+    1. {results[0].mp.ToTweetFormat()} - {results[0].interests.Sum(i => i.valueInPounds):C}
+    2. {results[1].mp.ToTweetFormat()} - {results[1].interests.Sum(i => i.valueInPounds):C}
+    3. {results[2].mp.ToTweetFormat()} - {results[2].interests.Sum(i => i.valueInPounds):C}";
+
+    Console.WriteLine(tweet);
+    Console.WriteLine(tweet.Length);
+    Console.WriteLine();
 }
 
-void Top3GiftersByMoney(IEnumerable<Interest> interests) {
-    var results = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
+void Top3GiftersByMoney(IEnumerable<Interest> interests, DateTime month)
+{
+    var results = interests
+    .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
+    .GroupBy(interest => interest.donor, (donor, interests) => new
+    {
         donor = donor,
-        interests = interests 
+        interests = interests
     })
     .OrderByDescending(x => x.interests.Sum(i => i.valueInPounds))
     .Take(3)
     .ToList();
 
-    var tweet = $@"Top donors of the last month (X-Xth) to MPs
-    {results[0].donor.name} - {results[0].interests.Sum(i => i.valueInPounds):C}
-    {results[1].donor.name} - {results[1].interests.Sum(i => i.valueInPounds):C}
-    {results[2].donor.name} - {results[2].interests.Sum(i => i.valueInPounds):C}";
+    var tweet = $@"Largest donors of the last month ({month.ToString("MMM yyyy")}) to MPs
+    1. {results[0].donor.name} - {results[0].interests.Sum(i => i.valueInPounds):C}
+    2. {results[1].donor.name} - {results[1].interests.Sum(i => i.valueInPounds):C}
+    3. {results[2].donor.name} - {results[2].interests.Sum(i => i.valueInPounds):C}";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);
+    Console.WriteLine();
 }
 
-void Top3GiftersByNumberOfMPs(IEnumerable<Interest> interests) {
-    var results = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
+void Top3GiftersByNumberOfMPs(IEnumerable<Interest> interests, DateTime month)
+{
+    var results = interests
+    .Where(interest => interest.dateRegistered?.Year == month.Year && interest.dateRegistered?.Month == month.Month)
+    .GroupBy(interest => interest.donor, (donor, interests) => new
+    {
         donor = donor,
-        mps = interests.Select(interest => interest.mp).Distinct()
+        mps = interests.Select(interest => interest.mp).Distinct(),
+        totalValue = interests.Sum(interest => interest.valueInPounds)
     })
     .OrderByDescending(x => x.mps.Count())
     .Take(3)
     .ToList();
-    // .ForEach(x => {
-    //     Console.WriteLine(x.donor);
-    //     foreach (var mp in x.mps) {
-    //         Console.WriteLine(mp);
-    //     }
-    //     Console.WriteLine();
-    // });
 
-    var tweet = $"The  of the last month are";
-}
+    var tweet = $@"Most widespread donors of the last month ({month.ToString("MMM yyyy")}) are
+    1. {results[0].donor.name} - {results[0].totalValue:C} spread across {results[0].mps.Count()} MPs
+    2. {results[1].donor.name} - {results[1].totalValue:C} spread across {results[1].mps.Count()} MPs
+    3. {results[2].donor.name} - {results[2].totalValue:C} spread across {results[2].mps.Count()} MPs";
 
-
-string[] InterestToTweets(Interest interest)
-{
-    return new string[]{
-        $"{interest.mp.twitterHandle} MP for {interest.mp.consituency} accepted a gift worth {interest.valueInPounds:C} from {interest.donor?.name} of \"{interest.description}\"",
-        $"The gift was accepted on {interest.dateAccepted?.ToString("dd MMMM yyyy")} and registered on {interest.dateRegistered?.ToString("dd MMMM yyyy")}. All official details here: {interest.mp.registerLink}"
-    };
+    Console.WriteLine(tweet);
+    Console.WriteLine(tweet.Length);
+    Console.WriteLine();
 }
 
 // var mpsWhoLoveAGamble = mpsAndInterests
