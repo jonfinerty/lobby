@@ -1,22 +1,53 @@
 ﻿
-var latestRegisterDateStamp = "220328";
-var interests = await Interest.GetInterests(latestRegisterDateStamp);
 
-var latestRegisterUpdateEndDate = new DateTime(2022, 03, 28);
-var previousRegisterUpdateEndDate = new DateTime(2022, 03, 14);
-var latestRegisterUpdateStartDate = previousRegisterUpdateEndDate.AddDays(1);
-var feb2022 = new DateTime(2022, 02, 01);
-var mar2022 = new DateTime(2022,03,01);
-
-var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered >= latestRegisterUpdateStartDate);
-//var interestInTheLastMonth = interests.Where(interest => interest.dateRegistered >= l);
-interestSinceLastRegister.Select(InterestToTweets).ToList()
-.ForEach(i =>
+using (var db = new Db())
 {
-    Console.WriteLine(i[0]);
-    Console.WriteLine(i[1]);
-    Console.WriteLine();
-});
+    // Note: This sample requires the database to be created before running.
+    Console.WriteLine($"Database path: {db.DbPath}.");
+        
+    // Create
+    Console.WriteLine("Inserting a new blog");
+    db.Add(new Blog { Url = "http://blogs.msdn.com/adonet" });
+    db.SaveChanges();
+
+    // Read
+    Console.WriteLine("Querying for a blog");
+    var blog = db.Blogs
+        .OrderBy(b => b.BlogId)
+        .First();
+
+    // Update
+    Console.WriteLine("Updating the blog and adding a post");
+    blog.Url = "https://devblogs.microsoft.com/dotnet";
+    blog.Posts.Add(
+        new Post { Title = "Hello World", Content = "I wrote an app using EF Core!" });
+    db.SaveChanges();
+
+    // Delete
+    Console.WriteLine("Delete the blog");
+    db.Remove(blog);
+    db.SaveChanges();
+}
+
+
+// var latestRegisterDateStamp = "220328";
+// var interests = await Interest.GetInterests(latestRegisterDateStamp);
+
+// var latestRegisterUpdateEndDate = new DateTime(2022, 03, 28);
+// var previousRegisterUpdateEndDate = new DateTime(2022, 03, 14);
+// var latestRegisterUpdateStartDate = previousRegisterUpdateEndDate.AddDays(1);
+// var feb2022 = new DateTime(2022, 02, 01);
+// var mar2022 = new DateTime(2022,03,01);
+
+// var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered >= latestRegisterUpdateStartDate);
+// //var interestInTheLastMonth = interests.Where(interest => interest.dateRegistered >= l);
+// interestSinceLastRegister.Select(InterestToTweets).ToList()
+// .ForEach(i =>
+// {
+//     Console.WriteLine(i[0]);
+//     Console.WriteLine(i[1]);
+//     Console.WriteLine();
+// });
 
 string[] InterestToTweets(Interest interest)
 {
