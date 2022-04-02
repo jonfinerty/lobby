@@ -1,40 +1,41 @@
 ﻿
-var latestRegisterDateStamp = "220314";
+var latestRegisterDateStamp = "220328";
 var interests = await Interest.GetInterests(latestRegisterDateStamp);
 
-var latestRegisterUpdateEndDate = new DateTime(2022, 03, 14);
-var previousRegisterUpdateEndDate = new DateTime(2022, 02, 28);
+var latestRegisterUpdateEndDate = new DateTime(2022, 03, 28);
+var previousRegisterUpdateEndDate = new DateTime(2022, 03, 14);
 var latestRegisterUpdateStartDate = previousRegisterUpdateEndDate.AddDays(1);
 var feb2022 = new DateTime(2022, 02, 01);
+var mar2022 = new DateTime(2022,03,01);
 
-//var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered >= latestRegisterUpdateStartDate);
-// var interestInTheLastMonth = interests.Where(interest => interest.dateRegistered >= l);
-// interestSinceLastRegister.Select(InterestToTweets).ToList()
-// .ForEach(i =>
-// {
-//     Console.WriteLine(i[0]);
-//     Console.WriteLine(i[1]);
-//     Console.WriteLine();
-// });
+var interestSinceLastRegister = interests.Where(interest => interest.dateRegistered >= latestRegisterUpdateStartDate);
+//var interestInTheLastMonth = interests.Where(interest => interest.dateRegistered >= l);
+interestSinceLastRegister.Select(InterestToTweets).ToList()
+.ForEach(i =>
+{
+    Console.WriteLine(i[0]);
+    Console.WriteLine(i[1]);
+    Console.WriteLine();
+});
 
-// string[] InterestToTweets(Interest interest)
-// {
-//     return new string[]{
-//         $"{interest.mp.twitterHandle} MP for {interest.mp.consituency} accepted a gift worth {interest.valueInPounds:C} from {interest.donor.name} of \"{interest.description}\"",
-//         $"The gift was accepted on {interest.dateAccepted?.ToString("dd MMMM yyyy")} and registered on {interest.dateRegistered?.ToString("dd MMMM yyyy")}. All official details here: {interest.mp.registerLink}"
-//     };
-// }
+string[] InterestToTweets(Interest interest)
+{
+    return new string[]{
+        $"MP for {interest.mp.consituency} {interest.mp.twitterHandle} accepted a gift worth {interest.valueInPounds:C} from {interest.donor.name} of \"{interest.description}\"",
+        $"The gift was accepted on {interest.dateAccepted?.ToString("dd MMMM yyyy")} and registered on {interest.dateRegistered?.ToString("dd MMMM yyyy")}. All official details here: {interest.mp.registerLink}"
+    };
+}
 
-Top3GifteesByMonth(interests, feb2022);
-Top3GiftersByMoneyByMonth(interests, feb2022);
-Top3GiftersByNumberOfMPsByMonth(interests, feb2022);
+// Top3GifteesByMonth(interests, mar2022);
+// Top3GiftersByMoneyByMonth(interests, mar2022);
+// Top3GiftersByNumberOfMPsByMonth(interests, mar2022);
 
-RegisterUpdateSummary(interests, latestRegisterUpdateStartDate, latestRegisterUpdateEndDate);
-YearlySummary(interests);
-YearlyTop3Giftees(interests);
-YearlyTop3GiftersByMoney(interests);
+// RegisterUpdateSummary(interests, latestRegisterUpdateStartDate, latestRegisterUpdateEndDate);
+// YearlySummary(interests);
+// YearlyTop3Giftees(interests);
+// YearlyTop3GiftersByMoney(interests);
 
-FollowUpTweet(latestRegisterDateStamp);
+// FollowUpTweet(latestRegisterDateStamp);
 // var groupedByDonor = interests.GroupBy(interest => interest.donor, (donor, interests) => new {
 //     Donor = donor,
 //     TotalValue = interests.Sum(interest => interest.valueInPounds),
@@ -94,9 +95,9 @@ void YearlyTop3Giftees(IEnumerable<Interest> interests)
 
     var tweet = $@"Most gifted MPs so far this year
 
-1. {results[0].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[0].interests.Sum(i => i.valueInPounds):C}
-2. {results[1].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[1].interests.Sum(i => i.valueInPounds):C}
-3. {results[2].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth a total of {results[2].interests.Sum(i => i.valueInPounds):C}";
+1. {results[0].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth in total {results[0].interests.Sum(i => i.valueInPounds):C}
+2. {results[1].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth in total {results[1].interests.Sum(i => i.valueInPounds):C}
+3. {results[2].mp.ToTweetFormat()} - {FormatGifts(results[0].interests.Count())} worth in total {results[2].interests.Sum(i => i.valueInPounds):C}";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);
@@ -232,9 +233,9 @@ void Top3GiftersByNumberOfMPsByMonth(IEnumerable<Interest> interests, DateTime m
     .ToList();
 
     var tweet = $@"Most widespread donors to MPs in the last month (gifts reg. in {month.ToString("MMM yyyy")})
-    1. {results[0].donor?.name} - {results[0].totalValue:C} spread across {results[0].mps.Count()} MPs
-    2. {results[1].donor?.name} - {results[1].totalValue:C} spread across {results[1].mps.Count()} MPs
-    3. {results[2].donor?.name} - {results[2].totalValue:C} spread across {results[2].mps.Count()} MPs";
+1. {results[0].donor?.name} - {results[0].totalValue:C} spread across {results[0].mps.Count()} MPs
+2. {results[1].donor?.name} - {results[1].totalValue:C} spread across {results[1].mps.Count()} MPs
+3. {results[2].donor?.name} - {results[2].totalValue:C} spread across {results[2].mps.Count()} MPs";
 
     Console.WriteLine(tweet);
     Console.WriteLine(tweet.Length);

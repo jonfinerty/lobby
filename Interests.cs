@@ -72,7 +72,8 @@ public record Interest(MP mp, Donor? donor, decimal? valueInPounds, DateTime? da
 
         // Amount of donation, or nature and value if donation in kind
         var description = ParseDescription(content);
-        var value = Utils.RegexOut(@"£([0-9,]+\.?[0-9]*)(\s|<br/>|;|\)|\.)", content); // todo: multiple values
+        var values = Utils.RegexOutMulti(@"£([0-9,]+\.?[0-9]*)(\s|<br/>|;|\)|\.)", content);
+        var value = values.Count == 0 ? null : values.Last(); // todo: multiple values
         var dateReceived = Utils.RegexOut(@"Date received: (.+?)( \(|<br/>)", content); // todo: fix range handling
         var dateAccepted = Utils.RegexOut(@"Date accepted: (.+?)( \(|<br/>)", content);
         var dateRegistered = Utils.RegexOut(@"\(Registered (.+?)(\)|;)", content);
