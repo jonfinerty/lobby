@@ -1,5 +1,4 @@
 ﻿
-
 using (var db = new Db())
 {
     // Note: This sample requires the database to be created before running.
